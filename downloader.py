@@ -8,6 +8,47 @@ from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
 import datetime
 
+# 0. FUNCTIONS
+def get_course_dict(courses):
+    course_list = courses.split(",")
+    course_dict = {}
+    for course in course_list:
+        course_dict[course.split(":")[0]] = int(course.split(":")[1])
+    return course_dict
+
+def generate_export_directory(uni_directory, course_code):
+    course_directory = uni_directory + "/" + course_code
+    if not os.path.exists(course_directory):
+        os.mkdir(course_directory)
+    export_directory = course_directory + "/lecture videos/"
+    if not os.path.exists(export_directory):
+        os.mkdir(export_directory)
+    return export_directory
+
+def start_browser(export_directory, chromedriver_directory):
+    #change default chromedriver download directory
+    chromeOptions = webdriver.ChromeOptions()
+    prefs = {"download.default_directory" : export_directory}
+    chromeOptions.add_experimental_option("prefs",prefs)
+
+    browser = webdriver.Chrome(executable_path=chromedriver_directory, options=chromeOptions)
+    browser.set_page_load_timeout(15)
+    browser.get(baseurl)
+    browser.implicitly_wait(30)
+    return browser
+
+def get_weeknames(course_code, num_weeks):
+    weeknames = []
+    if course_dict[course_code] == 1:
+        weeknames = range(num_weeks)
+    else:
+        for i in range(num_weeks):
+            for j in range(course_dict[course_code]):
+                weeknames.append(str(i+1)+chr(j+97))
+    return weeknames
+
+    
+
 # 1. SET UP
 
 ## Get date
@@ -31,43 +72,24 @@ zID = input("Type your zID: ")
 password = input("Type your password: ")
 courses = input("Type the courses you would like to download and the number of lectures per week in the format 'COURSE1:#OFLECTURES,COURSE2:#OFLECTURES': ")
 uni_directory = input("Type the directory where you would like to download the lectures to: ")
+chromedriver_directory = input("Type path to chromedriver: ")
 
 
 echo360email = firstname+"."+lastname+"@student.unsw.edu.au"
 microsoftemail = zID+"@ad.unsw.edu.au"
-course_list = courses.split(",")
-course_dict = {}
-for course in course_list:
-    course_dict[course.split(":")[0]] = int(course.split(":")[1])
+
+course_dict = get_course_dict(courses)
 
 # assuming UNSW trimesters
 num_weeks = 10
 
 for course_code in course_dict.keys():
-    course_directory = uni_directory + "/" + course_code
-    if not os.path.exists(course_directory):
-        os.mkdir(course_directory)
-    export_directory = course_directory + "/lecture videos/"
-    if not os.path.exists(export_directory):
-        os.mkdir(export_directory)
-    # START UP BROWSER AND LOGON TO ECHO360
-    chromeOptions = webdriver.ChromeOptions()
-    prefs = {"download.default_directory" : export_directory}
-    chromeOptions.add_experimental_option("prefs",prefs)
-
-    browser = webdriver.Chrome(executable_path='/Users/austinlei/Downloads/chromedriver', options=chromeOptions)
-    try:
-        browser.set_page_load_timeout(15)
-        browser.get(baseurl)
-        browser.implicitly_wait(30)
-        # set up download directory
-    except:
-        pass
-    
+    export_directory = generate_export_directory(uni_directory, course_code)
+    weeknames = get_weeknames(course_code, num_weeks)
+    browser = start_browser(export_directory, chromedriver_directory)
 
     #logon to echo360
-    email_input = browser.find_element_by_id("email")
-    email_input.send_keys(echo360email)
+    browser.find_element_by_id("email").send_keys(echo360email)
     browser.find_element_by_id("submitBtn").click()
 
     #logon to microsoft
@@ -83,13 +105,6 @@ for course_code in course_dict.keys():
             print(course_code)
             course.click()
             break
-    weeknames = []
-    if course_dict[course_code] == 1:
-        weeknames = range(num_weeks)
-    else:
-        for i in range(num_weeks):
-            for j in range(course_dict[course_code]):
-                weeknames.append(str(i+1)+chr(j+97))
 
     menu_openers = browser.find_elements_by_class_name("menu-opener")
 
@@ -97,8 +112,9 @@ for course_code in course_dict.keys():
     lecture_num = 0
     for menu_opener in menu_openers:
         lecture_filename = "Week " + weeknames[lecture_num] + ".mp4"
+        lecture_num = lecture_num + 1
+
         if lecture_filename in os.listdir(export_directory):
-            lecture_num = lecture_num + 1
             continue
 
         menu_opener.click()
@@ -124,10 +140,10 @@ for course_code in course_dict.keys():
                     dl_wait = True
                     basename = fname.split(".")[0]
             time.sleep(5)
+        
         for fname in os.listdir(export_directory):
             if fname.split(".")[0] == basename:
                 os.rename(export_directory+fname, export_directory+lecture_filename)
-        lecture_num = lecture_num + 1
 
     browser.quit()
 
