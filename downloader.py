@@ -29,6 +29,7 @@ def start_browser(export_directory, chromedriver_directory):
     #change default chromedriver download directory
     chromeOptions = webdriver.ChromeOptions()
     prefs = {"download.default_directory" : export_directory}
+    chromeOptions.add_argument("--start-maximised")
     chromeOptions.add_experimental_option("prefs",prefs)
 
     browser = webdriver.Chrome(executable_path=chromedriver_directory, options=chromeOptions)
@@ -110,14 +111,15 @@ for course_code in course_dict.keys():
 
     # Find all available lectures and download them
     lecture_num = 0
+    print(len(menu_openers))
     for menu_opener in menu_openers:
         lecture_filename = "Week " + weeknames[lecture_num] + ".mp4"
         lecture_num = lecture_num + 1
 
         if lecture_filename in os.listdir(export_directory):
             continue
-
-        menu_opener.click()
+        print(lecture_num)
+        menu_opener.send_keys("\n")#click()
         menu = browser.find_element_by_class_name("menu-items")
         menu.find_elements_by_tag_name("li")[1].click()
         select_wrapper = browser.find_element_by_class_name("select-wrapper")
